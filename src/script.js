@@ -1,58 +1,39 @@
 'use strict'
 
-/* Класс - функция возвращающая объекты (return там по умолчанию) */
-// в отличие от функций, чтобы использовать класс, его надо сначала оределить.
-// 1 Определение класса
-class Person{}
-// 2 Определение класса
-const Person = class{}
-// 3 Определение класса	
-const User = class Person{}
-
-class Human {
-    constructor (name, age, gender = 'm') {
-        this.name = name
-        this.age = age
-        this.gender = gender
-    }
-    // methods (будет в prototype)
-    getOlder () {
-        this.age++
-    }
-    becomeMother () {
-        if (this.gender === 'f') {
-            console.log(this.name + ' becomes mother')
-        } else {
-            console.log(this.name + ' can not become mother')
+/* Методы не требующие внешнего вызова (инкапсулированные)
+запускаемые при обращении к классу (созданию нового экземпляра 
+объекта на основе конструктора класса). Пример */
+    class Catalog {
+        constructor () {
+            this.products = []
+            /* 2 Прописываем запуск этого метода прямо из конструктора по умолчанию
+            * метод выполняемый внутри конструктора (других методов по факту) называется инкапсулированный
+            * и по соглашению и его название начинается с нижнего подчеркивания чтобы не перепутать.
+            * Методы вызываемые снаружи называются общими (неинкапсулированные) */
+            this._init()
+        }
+    /* 1 Создаем метод */
+        _init() {
+            this._fetchProducts()
+            this._render()
+        }
+        _fetchProducts() {
+            for (let i = 0; i < image.length; i++) {
+                this.products.push(new Product(ids[i], items[i], prices[i]))
+            }
+    
+        }
+        _render() {
+            const block = document.querySelector('.products')
+    /* Можно использовать forEach, но для разнообразия используем for of он полноценно заменяет forEach */
+            let htmlString = ''
+            for (let item of this.products) {
+                htmlString += item.render()
+            }
+            block.innerHTML = htmlString
         }
     }
-}
-
-/* Создание нового объекта на основе класса и присваивание значения в переменную 
-с передачей значений */
-let vasia = new Human ('Vasily', 32)
-let sofa = new Human ('Sophia', 24, 'f')
-
-class Planet {
-    constructor () {
-        this.people = []
-    }
-    createHuman (name, age, gender = 'm') {
-        this.people.push (new Human (name, age, gender))
-    }
-}
-
-let earth = new Planet()
-earth.createHuman('John', 31)
-earth.createHuman('Elisabeth', 26, 'f')
-/* Вариант вызова 1 */
-// earth.people.forEach (el => {
-//     if (el.gender === 'f') {
-//         el.becomeMother()
-//     }
-// })
-
-/* Вариант вызова 2 */
-    earth.people.forEach (el => {
-        el.becomeMother()
-})
+    
+    /* При создании нового объекта на основе конструктора с инкапсулированным методом
+    *  не нужно запускать метод извне */
+    let catalog = new Catalog() // render сработает сразу при создании нового экземпляра объекта
