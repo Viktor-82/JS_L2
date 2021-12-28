@@ -1,39 +1,77 @@
 'use strict'
 
-/* Методы не требующие внешнего вызова (инкапсулированные)
-запускаемые при обращении к классу (созданию нового экземпляра 
-объекта на основе конструктора класса). Пример */
-    class Catalog {
-        constructor () {
-            this.products = []
-            /* 2 Прописываем запуск этого метода прямо из конструктора по умолчанию
-            * метод выполняемый внутри конструктора (других методов по факту) называется инкапсулированный
-            * и по соглашению и его название начинается с нижнего подчеркивания чтобы не перепутать.
-            * Методы вызываемые снаружи называются общими (неинкапсулированные) */
-            this._init()
-        }
-    /* 1 Создаем метод */
-        _init() {
-            this._fetchProducts()
-            this._render()
-        }
-        _fetchProducts() {
-            for (let i = 0; i < image.length; i++) {
-                this.products.push(new Product(ids[i], items[i], prices[i]))
-            }
-    
-        }
-        _render() {
-            const block = document.querySelector('.products')
-    /* Можно использовать forEach, но для разнообразия используем for of он полноценно заменяет forEach */
-            let htmlString = ''
-            for (let item of this.products) {
-                htmlString += item.render()
-            }
-            block.innerHTML = htmlString
+/* Урок 2 JS2 */
+/* Класс расчитывает стоимость и калорийность гамбургера */
+class CreateBurger {
+    constructor (input, /* price, calories, */button, cost, calories) {
+        this.input = input;        
+        this.button = button;
+        this.cost = cost;
+        this.calories = calories;
+/* Объявляем переменные со значениями null */
+        this.price = null;
+        this.calories = null;
+        this.checkButton(input);
+    }
+/* Метод добавляет слушатель событий на кнопку и запускает функции */
+    checkButton(input) {
+                    button.addEventListener('click', (event) => {
+                    input.forEach((el)=>{
+                    if (el.checked) {
+                    // this.clearData(el);
+                    this.sumData(el);
+                    this.addMarkup(el);
+                }
+
+            })
+        })
+    }
+/* Метод проверяет есть ли данные отличные от null в переменных 
+price и calories если проверка выявит что данные есть то переменные 
+приводятся к null */
+    clearData() {
+        if (this.price != null && this.calories != null) {
+            this.price = null;
+            this.calories = null;
+            this.addMarkup();
         }
     }
-    
-    /* При создании нового объекта на основе конструктора с инкапсулированным методом
-    *  не нужно запускать метод извне */
-    let catalog = new Catalog() // render сработает сразу при создании нового экземпляра объекта
+/* Метод берет данные из массивов приводит из к типу данных number
+и записывает сумму данных в переменные price и calories */
+    sumData(el) {
+        this.price += Number(el.dataset.price);
+        this.calories += Number(el.dataset.calories);
+    }
+/* Метод добавляет разметку HTML с данными из переменных 
+price и calories */
+    addMarkup() {
+    // для отладки
+        // console.dir(totalCost);
+        if (this.price != null && this.calories != null) {
+        totalCost.innerText = `Итоговая стоимость: ${this.price}`;
+        totalCalories.innerText = `Количество калорий: ${this.calories} `;
+        } else {
+        document.location.reload();
+        // totalCost.innerText = 'Свободная касса';
+        // totalCalories.innerText = '';
+        }
+    }
+}
+
+/* Внешние переменные */
+let inputEl = document.querySelectorAll('input');
+// let priceEl = [];
+// let caloriesEl = [];
+// let priceEl = null;
+// let caloriesEl = null;
+let button = document.querySelector('.submitInfo');
+let totalCost = document.querySelector('.totalCost');
+let totalCalories = document.querySelector('.totalCalories');
+
+let myBurger = new CreateBurger(inputEl, button, totalCost, totalCalories);
+
+/* Отдельный вызов метода с кнопки .newOrder */
+let newOrder = document.querySelector('.newOrder');
+newOrder.addEventListener('click', () =>  {
+    myBurger.clearData();
+})
