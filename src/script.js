@@ -1,288 +1,362 @@
 'use strict'
 
-/* Объект XMLHttpRequest - объект встроенный в браузер для работы с запросами по технологии AJAX 
-(Asynchronous Javascript and XML). В Internet Explorer имеет аналог ActiveXObject
-XMLHttpRequest дает возможность JS делать запросы к серверу без перезагрузки страницы
-применение Promise{} является только оберткой для XMLHttpRequest. Его использования при 
-запросах в любом случае необходимо.
-Применение метода fetch() в большинстве случаев заменяет XMLHttpRequest, кроме тех 
-где необходимо отслеживать прогресс отправки на сервер */
+/* 
+Асинхронные запросы на сервер
+ */
+/* Простейшая асинхронная функция setTimeout */
+const async = (a) => { 
+  setTimeout(() => {
+  const b = a + 1;
+  return b;
+  }, 200);
+}
+async(5) // undefined
 
-/* Порядок работы с XMLHttpRequest */
+/*
+1) Запрос при помощи callback ( cb() )
+*/
+// недостаток callback - перегруз запросами когда их много - "callback hell"
+/* Общий принцип - в API браузера попадает функция с задачей которая ставится в очередь 
+и будет отправлена в стек выполнения по истечении таймаута */
+const async = (a, cb) => {
+  setTimeout(() => {
+  const b = a + 1;
+  cb(b);
+  }, 200);
+}
+/* по истечении таймаута cb() будет вызвана */
+async(5, (b) => {
+console.log(b); // 6
+});
 
-// присваиваем новый экземпляр объекта в переменную 
-let xhr = new XMLHttpRequest();
+/* Как это реализовывается на практике запросов */
+let urlAPI = ''// url ссылка на JSON с данными
+function request (url, callback) {
+  function makeGETRequest(url, callback) {
+      let xhr     
+      if (window.XMLHttpRequest) {
+        xhr = new XMLHttpRequest() 
+      } else if (window.ActiveXObject) {
+        xhr = new ActiveXObject("Microsoft.XMLHTTP")
+      }
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          callback(xhr.responseText) 
+        }
+      }    
+      xhr.open('GET', url, true)
+      xhr.send()
+    }       
+}
+/* Для получения и обработки запроса */
+function handler (data) {
+  // получаем ответ // JSON
+  // обрабатываем ответ JSON -> data JS
+  console.log(data)
+}
+// вызываем функцию, передаем два параметра
+request(urlAPI, handler) 
 
-// инициализируем объект методом open()
-xhr.open("GET", "http://localhost/hello.txt", true);
+/* Пример 2 с callback */
+function loadScript(src, callback) {
+  let script = document.createElement('script');
+  script.src = src;
 
-/* Подробно про метод open() */
-/* Принимает три основных параметра - 
-1) тип запроса GET, POST, HEAD, PUT (самые частые GET, POST) 
-2) URL запроса
-3) логическое true (асинхронность включена) или false (выключена) 
-+ два дополнительных параметра - "login" и "password" */
+  script.onload = () => callback(null, script);
+  script.onerror = () => callback(new Error(`Ошибка загрузки скрипта ${src}`));
+// если callback будет много то непонятно в каком порядке они загрузятся и выполнятся (callback hell)
+  document.head.append(script);
+}
 
-// после инициализации отправляем запрос методом send()
-xhr.send()
+/* Пример с вложенными callback's */
+setTimeout(() => {
+  console.log('Prepfring data...')
 
-/* Свойства XMLHttpRequest применяемые для контроля выполнения запроса 
-status: код ответа HTTP по которому можно посмотреть состояние или ошибки
-например - 200 (успешно), 403 (необходима авторизация), 404 (ресурс не найден)
+  const backendData = {
+    server: 'aws',
+    port: 2000, 
+    status: 'working'
+  }
+  setTimeout(() => {
+    backendData.modified = true
+    console.log('Data reseived', backendData)
+  }, 2000)
+}, 2000)
 
-statusText: текст статуса ответа напр. "200 OK" 
 
-responseType: тип ответа (можно указать тип ожидаемого ответа xhr.responseType = 'json')
-"" - (по умолчанию) строка,
-"arraybuffer" - (для бинарных данных, массив),
-"blob" - для бинарных данных, 
-"document" XML-документ (может использовать XPath и другие XML-методы),
-"json" - JSON (парсится автоматически), 
-"text" - строка
+/* 
+2) Запрос при помощи объекта Promise
+*/
+/* Объект Promise находится в одном из трех состояний:
+pending - ожидание,
+fulfilled - успешное выполнение, 
+rejected - выполнено с ошибкой.
 
-response: ответ сервера
+У объекта Promise есть методы 
 
-responseText: текст ответа сервера
 
-responseXML: возвращает XML
+метод then() - выполнится в состоянии fulfilled 
+в then() могут передаваться два аргумента (функции) 
+1 для успешного выполнения
+2 для выполнения с ошибкой
+
+const promise = new Promise((resolve, reject) => {
+});
+promise.then(() => { // Колбэк для resolve()  
+},
+            () => { // Колбэк для reject()
+});
+
+метод then() также возвращает Promise поэтому из него можно строить цепочки
+и передавать в следующий then данные для обработки из предыдущего
+
+promise
+.then(() => { })  
+.then(() => { })  
+.then(() => { });  
+
+
+
+
+
+метод catch() - существует только для обработки ошибок
+вызов .catch(f) – это сокращённый, «укороченный» вариант .then(null, f)
+
+let promise = new Promise((resolve, reject) => {
+  setTimeout(() => reject(new Error("Ошибка!")), 1000);
+});
+promise.catch(alert); // выведет "Error: Ошибка!" спустя одну секунду
+
+
+
+
+
+метод finally() - выполнится в любом случае (с ошибкой или без) может служить
+индикатором окончания загрузки, после него можно запускать then() 
+
+new Promise((resolve, reject) => {
+// сделать что-то, что займёт время, и после вызвать resolve/reject
+})
+// выполнится, когда промис завершится, независимо от того, успешно или нет
+  .finally(() => остановить индикатор загрузки)
+  .then(result => показать результат, err => показать ошибку)
+
 */
 
 
+/* Пример вызова метода then() с двумя аргументами */
+let promise = new Promise(function(resolve, reject) {
+  setTimeout(() => resolve("done!"), 1000);
+  setTimeout(() => reject(new Error("Whoops!")), 1000);
+});
+// resolve запустит первую функцию, переданную в .then
+promise.then(
+  result => alert(result), 
+  error => alert(error) 
+);
 
-/* Свойство readystatechange объекта XMLHttpRequest содержит обработчик
-события которое возникает каждый раз при изменении свойства readyState
-Изменения появляются при каждом изменении статуса запроса. 
-Внимание: Не должно использоваться при синхронных запросах  и из исходного кода (native code).
-Событие readystatechange не произойдёт если запрос XMLHttpRequest отменён методом abort(). */
-xhr.onreadystatechange = function () {
-  if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-      console.log(xhr.responseText);
-  };
-};
 
-/* свойство readyState - хранит статус запроса 
-0: объект XMLHttpRequest создан, но метод open() еще не был вызван для инициализации объекта
-1: метод open() был вызван, но запрос еще не был отправлен методом send()
-2: запрос был отправлен, заголовки и статус ответа получены и готовы к использованию
-3: ответ получен от сервера
-4: выполнение запроса полностью завершено (даже если получен код ошибки, например, 404) */
-xhr.onreadystatechange = function () {
-  if(xhr.readyState === 4 && xhr.status === 200) {
-      console.log(xhr.responseText);
-  };
-};
+/* Пример цепочки вызовов с использованием Promise 
+где каждый последующий then принимает результать предыдущего и может совершать
+с ним какие то действия */
+const giveMeNumber = (number) => {
+return new Promise((resolve) => {
+      setTimeout(() => {
+      resolve(number);
+      }, 200)
+  });
+}
+giveMeNumber(5)
+.then((number) => { return number + 1; }) 
+.then((number) => { return number + 10; })
+.then((number) => { console.log(number) }); // В консоль выведется 16
 
-/* Событие load также можно использовать для обработки ответа сервера вместо onreadystatechange */
-xhr.onload = function() {
-  alert(`Загружено: ${xhr.status} ${xhr.response}`);
-};
+/* Пример 2 цепочки вызовов с модификацией данных */
+// 1
+p.then(data => {
+  const p2 = new Promise((resolve, reject) => {
+      setTimeout(() => {
+          data.modified = true
+          resolve(data)
+      }, 2000)
+  })
+// 2
+  p2.then(clientData => {
+      console.log('Data received', clientData)
+  })
+})
 
-// то же в другой записи
-let request = new XMLHttpRequest(); 
-function responceLoad() {
-    if (request.readyState == 4) {
-        var status = request.status;
-        if (status == 200) {
-            document.write(request.responseText);
-        } else {
-            document.write("Ответ сервера " + request.statusText);
-        }
-    }
+/* Можно заменить блоки кода 1 и 2 следующим не объявлять const p2 не писать лишний код */
+p.then(data => {
+  return new Promise((resolve, reject) => {
+      setTimeout(() => {
+          data.modified = true
+          resolve(data)
+      }, 2000)
+  })
+}).then(clientData => {
+  console.log('Data received', clientData)
+})
+/* Далее из этого кода можно продолжить цепочку для модификации данных в каждом then() */
+  .then(clientData => {
+      console.log('Data received', clientData)
+      clientData.fromPromise = true // изменяем параметры
+      return clientData // возвращаем данные для использования в следующем then()
+  }).then(data => {
+  console.log('Modified', data)
+})
+
+
+
+
+/* Создаем функцию на основе объекта Promise с обработкой выполнения методом then() 
+взамен примера с callback */
+function promiseAjax(url) {
+  return new Promise ( (resolve, reject) => {
+      xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                  resolve(xhr.responseText) //data // Эта запись 
+              } else {                         // нужна вместо
+                  reject('some error')            // callback
+              }
+          }
+      }
+// тип запроса, адрес ресурса, указатель асинхронности        
+        xhr.open('GET', url, true) // вызов метода объекта XMLHttpRequest
+        xhr.send()                 // вызов метода объекта XMLHttpRequest
+  })
+}
+// вызываем и передаем адрес запроса обработка выполнения и ошибки методом then()
+// и его аргументами resolve (успешкно) и reject (выведет ошибку)
+let url = 'какой то url.json'
+promiseAjax(url)
+promiseAjax.then(
+  result => alert(result), 
+  error => alert(error) 
+);
+
+
+/* Второй пример использования Promise с обработкой успешного выполнения методом then()
+и ошибки методом catch() */
+function getPromise() {
+/* По факту запись в одну строку - promiseAjax(urlAPI).then().catch() но принято писать так */
+  promiseAjax(urlAPI)
+  .then((data) => { // данные в формате JSON
+      console.log(JSON.parse(data)) // преобразовываем в объект
+  })
+  .catch((err) => {
+      console.log(err)
+  })  
 } 
-request.open("GET", "http://localhost:8080/hello.txt");
-request.onload = responceLoad; // запись в свойство заранее объявленной функции
-request.send();
+/* При вызове getPromise получим данные */
+getPromise()
+.then()
+.catch()
 
-/* Событие error - запрос не может быть выполнен, например, нет соединения или невалидный URL */
-
-/* Событие progress - происходит периодически во время загрузки ответа, сообщает о прогрессе */
-
-/* Полный пример обработки событий */
-
-// 1. Создаём новый XMLHttpRequest-объект
-let xhr = new XMLHttpRequest();
-// 2. Настраиваем его: GET-запрос по URL /article/.../load
-xhr.open('GET', '/article/xmlhttprequest/example/load');
-// 3. Отсылаем запрос
-xhr.send();
-// 4. Этот код сработает после того, как мы получим ответ сервера
-xhr.onload = function() {
-  if (xhr.status != 200) { // анализируем HTTP-статус ответа, если статус не 200, то произошла ошибка
-    alert(`Ошибка ${xhr.status}: ${xhr.statusText}`); // Например, 404: Not Found
-  } else { // если всё прошло гладко, выводим результат
-    alert(`Готово, получили ${xhr.response.length} байт`); // response -- это ответ сервера
-  }
-};
-xhr.onprogress = function(event) {
-  if (event.lengthComputable) {
-    alert(`Получено ${event.loaded} из ${event.total} байт`);
-  } else {
-    alert(`Получено ${event.loaded} байт`); // если в ответе нет заголовка Content-Length
-  }
-};
-xhr.onerror = function() {
-  alert("Запрос не удался");
-};
+/* В Promise нельзя перезаписать его функцию callback */
+let promise = new Promise(function(resolve, reject) {
+  resolve(1);
+  setTimeout(() => resolve(2), 1000);
+});
+promise.then(alert); // 1 второй resolve(2) будет проигнорирован
 
 
-
-/* Определить таймаут в течение которого ожидаем ответ */
-xhr.timeout = 10000; // таймаут указывается в миллисекундах, т.е. 10 секунд
-
-
-
-/* Объект URL - использование кодировки URL (URL с параметрами ?name=value) */
-let url = new URL('https://google.com/search');
-url.searchParams.set('q', 'test me!');
-// параметр 'q' закодирован
-xhr.open('GET', url); // https://google.com/search?q=test+me%21
-
-/* Метод encodeURIComponent() кодировка отправляемых параметров */
-let body = "name=" + encodeURIComponent(user.name) + "&age="+encodeURIComponent(user.age);
-
-/* Метод decodeURIComponent() обратное декодирование  */
-let encodeName = encodeURIComponent(user.name); // Tom%26Tim
-let decodeName = decodeURIComponent(encodeName); // Tom&Tim
-
-
-/* HTTP заголовки 
-XMLHttpRequest может указывать заголовки в запросе и читать присланные в ответ 
-для этого есть три метода. Некоторые заголовки могут управлятся только браузером. Их изменение 
-невозможно. (Referer, Host и др.) Также поставленные заголовки нельзя снять. Повторные вызовы 
-будут их дописывать, а не переписывать */
-
-/* 1) setRequestHeader(name, value) устанавливает заголовок запроса с именем name и значением value*/
-xhr.setRequestHeader('Content-Type', 'application/json');
-
-// пример того что заголовки не переписываются
-xhr.setRequestHeader('X-Auth', '123');// заголовок получится такой:
-xhr.setRequestHeader('X-Auth', '456');// X-Auth: 123, 456
-
-/* 2) getResponseHeader(name) возвращает значение заголовка ответа name 
-(кроме Set-Cookie и Set-Cookie2).*/
-xhr.getResponseHeader('Content-Type')
-
-/* 3) getAllResponseHeaders() возвращает все заголовки ответа в виде одной строки, 
-кроме Set-Cookie и Set-Cookie2 */
-Cache-Control: max-age=31536000
-Content-Length: 4260
-Content-Type: image/png
-Date: Sat, 08 Sep 2012 16:53:16 GMT
-
-/* Перевод строки между заголовками - "\r\n" в любой OC. Значение - ключ отделено : с пробелом */
-let headers = xhr
-  .getAllResponseHeaders()
-  .split('\r\n')
-  .reduce((result, current) => {
-    let [name, value] = current.split(': ');
-    result[name] = value;
-    return result;
-  }, {});
-
-// headers['Content-Type'] = 'image/png'
-
-/* Типовая форма Post запроса */
-let user = { // объект для отправки
-  name: "Tom",
-  age: 23
-};
-let request = new XMLHttpRequest();
-function reqReadyStateChange() {
-  if (request.readyState == 4 && request.status == 200)
-      document.getElementById("output").innerHTML=request.responseText;
+/* В Promise можно поставить задержку на его callback */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
-let body = "name=" + user.name + "&age="+user.age;
-request.open("POST", "http://localhost:8080/postdata.php");
-request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); // заголовок и тип данных
-request.onreadystatechange = reqReadyStateChange;
-request.send(body);
+delay(3000).then(() => alert('выполниться через 3 секунды'));
+delay(5000).then(() => alert('выполниться через 5 секунд'));
 
-/* Post запрос при помощи объекта FormData 
-создаем новый экземпляр объекта, можем указать из какой form брать данные, */
-let formData = new FormData([form]); // создаём объект, по желанию берём данные формы <form>
-formData.append(name, value); // добавляем поле
-xhr.open('POST', ...) // создаём POST-запрос.
-xhr.send(formData) // отсылаем форму серверу.
-/* Пример */
-// <form name="person">
-// <input name="name" value="Петя">
-// <input name="surname" value="Васечкин">
-// </form> 
-  // заполним FormData данными из формы
-  let formData = new FormData(document.forms.person);
-  // добавим ещё одно поле
-  formData.append("middle", "Иванович");
-  // отправим данные
-  let xhr = new XMLHttpRequest();
-  xhr.open("POST", "/article/xmlhttprequest/post/user");
-  xhr.send(formData);
-  xhr.onload = () => alert(xhr.response);
+/* Метод объекта Promise.all() можно передавать несколько промисов в массиве
+метод then() сработает после выполнения самого долгого */
+Promise.all([sleep(2000), sleep(5000)]) 
+  .then(() => { // будет выполнен тогда когда завершатся все промисы в массиве
+    console.log('All promises')
+  })
 
- /* Пример с JSON */
-  let xhr = new XMLHttpRequest();
-    let json = JSON.stringify({
-      name: "Вася",
-      surname: "Петров"
-    });
-  xhr.open("POST", '/submit')
-  xhr.setRequestHeader('Content-type', 'application/json; charset=utf-8');
-  xhr.send(json);
+/* Метод race() принимает массив промисов и срабатывает на первый выполнившийся промис */
+Promise.race([sleep(2000), sleep(5000)]) 
+  .then(() => { // будет выполнен тогда когда завершатся все промисы в массиве
+    console.log('Race promises')
+  })
 
-  /* Обработчик процесса отправки */
-  xhr.upload.onprogress = function(event) {
-    alert(`Отправлено ${event.loaded} из ${event.total} байт`);
-  };  
-  xhr.upload.onload = function() {
-    alert(`Данные успешно отправлены.`);
-  };  
-  xhr.upload.onerror = function() {
-    alert(`Произошла ошибка во время отправки: ${xhr.status}`);
-  };
 
-  /* Обработчик процесса отправки с индикацией прогресса */
+/* 
+Fetch API - современный аналог стандартного XMLHttpRequest
+Запрос при помощи метода fetch() 
+*/
+ /* options-доп.параметры, необязательные (метод, заголовки и т.д.) без options fetch() отправит Get запрос 
+ и вернет Promise
+ Статус ответа в свойствах:
+ status - код ответа (например 200)
+ ok - логическое значение (true если статус в диапазоне 200-299) */
+ let data = fetch(urlAPI, [options]) // пример синтаксиса
 
-  // <input type="file" onchange="upload(this.files[0])">
-  function upload(file) {
-  let xhr = new XMLHttpRequest();
-  // отслеживаем процесс отправки
-  xhr.upload.onprogress = function(event) {
-    console.log(`Отправлено ${event.loaded} из ${event.total}`);
-  };
-  // Ждём завершения: неважно, успешного или нет
-  xhr.onloadend = function() {
-    if (xhr.status == 200) {
-      console.log("Успех");
-    } else {
-      console.log("Ошибка " + this.status);
-    }
-  };
-  xhr.open("POST", "/article/xmlhttprequest/post/upload");
-  xhr.send(file);
+ /* Пример получения ответа по логическому свойству ok с ключом await*/
+ /* await сработает только внутри async функций и представляет собой синтаксический сахар заменяющий then()
+ т.е. ключ await заставит дождаться пока промис справа выполнится и после этого запишет результать в переменную слева */
+ let response = await fetch(url);
+if (response.ok) { // если HTTP-статус в диапазоне 200-299 получаем тело ответа
+  let json = await response.json();
+} else {
+  alert("Ошибка HTTP: " + response.status);
 }
 
+/* Чтобы декодировать тело объекта в различных форматах есть методы аналогичные методам XMLHttpRequest 
+text() – читает ответ и возвращает как обычный текст,
+json() – декодирует ответ в формате JSON,
+formData() – возвращает ответ как объект FormData (разберём его в следующей главе),
+blob() – возвращает объект как Blob (бинарные данные с типом),
+arrayBuffer() – возвращает ответ как ArrayBuffer (низкоуровневое представление бинарных данных),
+помимо этого, response.body – это объект ReadableStream, с помощью которого можно считывать тело запроса по частям. */
+// Пример получения данных в нужном формате
+let url = 'https://api.github.com/repos/javascript-tutorial/en.javascript.info/commits';
+let response = await fetch(url);
+let commits = await response.json(); // читаем ответ в формате JSON
+alert(commits[0].author.login);
+// То же с методом then() 
+fetch('https://api.github.com/repos/javascript-tutorial/en.javascript.info/commits')
+  .then(response => response.json())
+  .then(commits => alert(commits[0].author.login));
 
-/* Типовая форма Get запроса XMLHttpRequest */
-let xhr = new XMLHttpRequest();
 
-xhr.open('GET', '/my/url');
+ let data = fetch(urlAPI, [options])
+/* Первый then переводит объект в json либо json в объект в зависимости от того что есть 
+второй выводит в консоль, дальше пишем обработчик ошибок */
+  .then((data) => data.json()).then(dataParsed => {console.log(dataParsed)})
+  .catch((err) => {
+      console.log(err)
+  })
 
-xhr.send();
-
-xhr.onload = function() {
-  if (xhr.status != 200) { // HTTP ошибка?
-    // обработаем ошибку
-    alert( 'Ошибка: ' + xhr.status);
-    return;
-  }
-
-  // получим ответ из xhr.response
+/* Post запрос методом fetch() */
+let user = {
+  name: 'John',
+  surname: 'Smith'
 };
+let response = await fetch('/article/fetch/post/user', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json;charset=utf-8'
+  },
+  body: JSON.stringify(user) // body здесь это тело запроса
+});
+let result = await response.json();
+alert(result.message);
 
-xhr.onprogress = function(event) {
-  // выведем прогресс
-  alert(`Загружено ${event.loaded} из ${event.total}`);
-};
+/* Типовой запрос fetch() с ключом await */
+let response = await fetch(url, options); // завершается с заголовками ответа
+let result = await response.json(); // читать тело ответа в формате JSON
 
-xhr.onerror = function() {
-  // обработаем ошибку, не связанную с HTTP (например, нет соединения)
-};
+/* То же самое с методом then() */
+fetch(url, options)
+  .then(response => response.json())
+  .then(result =>  ) // обрабатываем результат
+
+/* Еще рабочий пример */
+let data = fetch(urlAPI)
+          .then((data) => data.json()).then(dataParsed => {console.log(dataParsed)})
+          .catch((err) => {
+            console.log(err)
+          })
